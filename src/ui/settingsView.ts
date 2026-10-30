@@ -5,14 +5,15 @@ import type { Trainer } from '../trainer/Trainer';
 import { createCalibrationCard, type CalibrationOptions } from './calibrationView';
 import { downloadText } from './download';
 import { confirmButton, el } from './dom';
+import { safeLocalStorage, writeDevPrefs, type DevPrefs } from '../devMode';
 import type { Units } from './units';
 
-/** Settings view: rider/physics parameters, units, simulator toggle, trainer info, storage, backup. */
+/** Settings view: rider/physics parameters, calibration, units, trainer info, storage, backup, developer options. */
 export async function mountSettings(
   root: HTMLElement,
   db: OxDb,
   trainer: Trainer,
-  useSim: boolean,
+  dev: DevPrefs,
   calibration: CalibrationOptions = {},
 ) {
   // --- parameters ---
@@ -56,7 +57,6 @@ export async function mountSettings(
     el('option', { value: 'imperial', textContent: 'Imperial (mi, mph, ft)' }),
   );
   units.value = await getSetting<Units>(db, 'units', 'metric');
-  const simToggle = el('input', { type: 'checkbox', checked: useSim });
   const saveStatus = el('div', { className: 'banner err', hidden: true });
 
   const save = el('button', {
@@ -78,11 +78,6 @@ export async function mountSettings(
       }
       writes.push(['units', units.value]);
       for (const [k, v] of writes) await setSetting(db, k, v);
-      try {
-        localStorage.setItem('useSim', simToggle.checked ? '1' : '0');
-      } catch {
-        /* storage unavailable; ?sim= in the URL still works */
-      }
       const url = new URL(location.href);
       url.searchParams.delete('sim');
       location.href = url.toString();
@@ -168,19 +163,54 @@ export async function mountSettings(
   const card = (title: string, ...kids: (Node | string)[]) =>
     el('section', { className: 'card' }, el('h3', {}, title), ...kids);
 
+  // --- developer options: everything simulator-related is behind the debug switch ---
+  const applyDev = (next: DevPrefs) => {
+    writeDevPrefs(safeLocalStorage(), next);
+    const url = new URL(location.href);
+    url.searchParams.delete('sim'); // a leftover ?sim= must not undo what was just chosen
+    location.href = url.toString();
+  };
+  const checkbox = (checked: boolean, text: string, onchange: (on: boolean) => void) => {
+    const box = el('input', { type: 'checkbox', checked });
+    box.onchange = () => onchange(box.checked);
+    return el('label', { className: 'check' }, box, el('span', {}, text));
+  };
+  const developer = card(
+    'Developer',
+    el(
+      'p',
+      { className: 'hint' },
+      'Debug mode adds a Debug tab and lets you use a simulated trainer instead of Bluetooth. Leave it off for normal riding.',
+    ),
+    checkbox(dev.debug, 'Debug mode', (on) =>
+      // Turning it on for the first time starts with the simulator and auto-connect on.
+      applyDev({
+        debug: on,
+        useSim: dev.debug ? dev.useSim : true,
+        autoConnectSim: dev.debug ? dev.autoConnectSim : true,
+      }),
+    ),
+    dev.debug
+      ? checkbox(dev.useSim, 'Use the simulated trainer (no Bluetooth needed)', (on) =>
+          applyDev({ ...dev, useSim: on }),
+        )
+      : '',
+    dev.debug
+      ? checkbox(
+          dev.autoConnectSim,
+          'Connect the simulated trainer automatically when the app loads',
+          (on) => applyDev({ ...dev, autoConnectSim: on }),
+        )
+      : '',
+  );
+
   root.append(
     el('h2', {}, 'Settings'),
     card('Rider and physics', form),
     await createCalibrationCard(db, trainer, calibration),
     card(
-      'Display and trainer',
+      'Display',
       el('label', { className: 'field' }, el('span', { className: 'field-label' }, 'Units'), units),
-      el(
-        'label',
-        { className: 'check' },
-        simToggle,
-        el('span', {}, 'Use the simulated trainer (no Bluetooth needed)'),
-      ),
     ),
     el('div', { className: 'savebar' }, save),
     saveStatus,
@@ -223,6 +253,7 @@ export async function mountSettings(
       restoreBox,
       restoreStatus,
     ),
+    developer,
   );
   void checkPersisted();
 }

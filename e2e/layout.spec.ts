@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // A page that scrolls sideways on a phone is a real usability bug, so guard against it on every tab,
 // including after the viewport shrinks (rotation, window resize) once charts have been drawn.

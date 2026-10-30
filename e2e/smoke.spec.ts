@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('simulated route ride: load route, ride 60 s at 200 W, grade commands sent, ride saved', async ({
   page,

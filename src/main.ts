@@ -3,6 +3,7 @@ import { GradePolicy } from './ride/gradePolicy';
 import { RideEngine } from './sim/rideEngine';
 import { Recorder } from './ride/recorder';
 import { DEFAULT_SETTINGS, getSetting, OxDb, setSetting } from './storage/db';
+import { readDevPrefs, safeLocalStorage } from './devMode';
 import { checkSupport } from './support';
 import { SimulatedTrainer } from './trainer/SimulatedTrainer';
 import type { Trainer } from './trainer/Trainer';
@@ -17,24 +18,19 @@ import { setUnits, type Units } from './ui/units';
 import { el } from './ui/dom';
 import { statusLabel } from './ui/status';
 
-// Simulated trainer is the default until real hardware is available:
-// `?sim=0` forces real Bluetooth, `?sim=1` forces the simulator, else the saved toggle (default on).
-function simPreference(): boolean {
-  const q = new URLSearchParams(location.search).get('sim');
-  if (q !== null) return q !== '0';
-  try {
-    return localStorage.getItem('useSim') !== '0';
-  } catch {
-    return true;
-  }
-}
+// The simulated trainer, the Debug tab and auto-connect only exist once "Debug mode" has been
+// switched on in Settings. Otherwise this is a plain Bluetooth app.
+const dev = readDevPrefs(safeLocalStorage(), location.search);
+const useSim = dev.useSim;
 
 const app = document.getElementById('app')!;
-const useSim = simPreference();
 const support = checkSupport(window);
 
 if (!useSim && !support.ok) {
-  app.innerHTML = `<div class="unsupported card"><h1>This browser can't connect to a trainer</h1><p>${support.reason}</p><p>You can still try the app with a simulated trainer: <a href="?sim=1">open the simulator</a>.</p></div>`;
+  const simulatorHint = dev.debug
+    ? '<p>Debug mode is on, so you can still try the app with a simulated trainer: <a href="?sim=1">open the simulator</a>.</p>'
+    : '';
+  app.innerHTML = `<div class="unsupported card"><h1>This browser can't connect to a trainer</h1><p>${support.reason}</p>${simulatorHint}</div>`;
 } else {
   void start();
 }
@@ -74,7 +70,8 @@ async function start() {
     Routes: el('section', { hidden: true }),
     History: el('section', { hidden: true }),
     Settings: el('section', { hidden: true }),
-    Debug: el('section', { hidden: true }),
+    // The Debug tab only exists in debug mode.
+    ...(dev.debug ? { Debug: el('section', { hidden: true }) } : {}),
   };
   const nav = el('nav', { className: 'tabs' });
   const tabButtons = new Map<string, HTMLButtonElement>();
@@ -122,11 +119,15 @@ async function start() {
   });
   mountRoutes(views.Routes, db);
   const history = mountHistory(views.History, db);
-  await mountSettings(views.Settings, db, trainer, useSim, {
+  await mountSettings(views.Settings, db, trainer, dev, {
     isRideActive: () => recorder.state !== 'idle',
     onTrainerTouched: () => dashboard.resetCommands(),
   });
-  mountDebug(views.Debug, trainer, useSim);
+  if (dev.debug) mountDebug(views.Debug, trainer, useSim);
+
+  // Debug mode only: bring the simulated trainer up without pressing Connect. (A real Bluetooth
+  // trainer can't do this; the browser requires a button press to open the device picker.)
+  if (dev.debug && useSim && dev.autoConnectSim) void trainer.connect();
 }
 
 // Offline support. Skipped in dev so the service worker never serves stale modules.

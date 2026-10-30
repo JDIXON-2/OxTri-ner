@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const tab = (page: Page, name: string) => page.locator('nav.tabs button', { hasText: name });
 const setPower = (page: Page, watts: number) =>

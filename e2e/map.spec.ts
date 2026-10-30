@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // 1x1 transparent PNG, standing in for map and terrain tiles.
 const PNG = Buffer.from(
