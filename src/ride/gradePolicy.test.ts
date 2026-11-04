@@ -15,6 +15,14 @@ describe('GradePolicy', () => {
     expect(p.update(0.5, 1000)).toBe(0.5);
   });
 
+  it('is not thrown off by readings that arrive slightly early (about 1 Hz with jitter)', () => {
+    const p = mk();
+    p.update(0, 0);
+    expect(p.update(8, 960)).toBe(1); // 960 ms after the last send still counts as a second
+    expect(p.update(8, 1930)).toBe(2); // and so does the next, so the ramp keeps its 1 s pace
+    expect(p.update(8, 2400)).toBeNull(); // but a genuinely early reading is still held back
+  });
+
   it('ignores changes under 0.1 %', () => {
     const p = mk();
     p.update(3, 0);

@@ -4,6 +4,11 @@ export interface GradePolicyOptions {
   /** 0–100 %: scales the grade sent to the trainer only; physics keeps the true grade. */
   difficulty: number;
   minIntervalMs?: number;
+  /**
+   * Slack on the interval. Trainers notify about once a second with a little jitter, so a strict
+   * 1000 ms test skips every other reading (seen on the real trainer: commands every 2 s).
+   */
+  jitterMs?: number;
   /** Smallest change worth sending, in % grade. */
   threshold?: number;
   /** Largest change per update, in % grade. */
@@ -24,13 +29,14 @@ export class GradePolicy {
       maxGrade,
       difficulty,
       minIntervalMs = 1000,
+      jitterMs = 150,
       threshold = 0.1,
       maxStep = 1,
     } = this.opts;
     const clamped = Math.min(maxGrade, Math.max(minGrade, targetGrade));
     const desired = clamped * (difficulty / 100);
     if (this.lastSent === null) return this.commit(desired, nowMs);
-    if (nowMs - this.lastAt < minIntervalMs) return null;
+    if (nowMs - this.lastAt < minIntervalMs - jitterMs) return null;
     const delta = desired - this.lastSent;
     if (Math.abs(delta) < threshold - 1e-9) return null;
     return this.commit(this.lastSent + Math.min(maxStep, Math.max(-maxStep, delta)), nowMs);
