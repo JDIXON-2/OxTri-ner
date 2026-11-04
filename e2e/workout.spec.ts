@@ -51,7 +51,7 @@ test('workout: needs calibration, then target watts follow the calibrated curve 
 
   // Without calibration the workout can't be started.
   await page.getByRole('button', { name: 'Workout', exact: true }).click();
-  await page.getByRole('button', { name: 'Add example' }).click();
+  await page.getByRole('button', { name: 'Add example: short intervals' }).click();
   await expect(page.locator('.workout-card .banner.warn')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start ride' })).toBeDisabled();
   await expect(page.locator('.actionbar .state')).toContainText('Calibrate your effort levels');
@@ -122,4 +122,16 @@ test('a good uploaded CSV becomes a selectable workout', async ({ page }) => {
   });
   await expect(page.locator('.workout-card select')).toContainText('my-intervals');
   await expect(page.locator('.workout-card select')).toContainText('11:00');
+});
+
+test('the 30 minute pyramids workout can be added with one tap', async ({ page }) => {
+  await page.getByRole('button', { name: 'Workout', exact: true }).click();
+  await page.getByRole('button', { name: 'Add example: 30 min pyramids' }).click();
+  await expect(page.locator('.workout-card select')).toContainText('pyramids-30min');
+  await expect(page.locator('.workout-card select')).toContainText('30:00');
+  // Eighteen 100 s steps: two pyramids of nine.
+  await expect(page.locator('.workout-svg rect')).toHaveCount(18);
+  // Adding the other example alongside it works too, and both are selectable.
+  await page.getByRole('button', { name: 'Add example: short intervals' }).click();
+  await expect(page.locator('.workout-card select option')).toHaveCount(2);
 });

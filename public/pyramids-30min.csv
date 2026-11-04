@@ -1,0 +1,29 @@
+# 30 minute workout: two pyramids (15 minutes each).
+# Each pyramid builds power in 100 s steps from 40 % up to 100 %, then releases back down
+# through the same steps for the same length of time. Effort is relative to YOUR calibration
+# (Settings > Effort calibration).
+seconds,effort
+# Pyramid 1: build
+100,0.40
+100,0.55
+100,0.70
+100,0.85
+# peak
+100,1.00
+# Pyramid 1: release
+100,0.85
+100,0.70
+100,0.55
+100,0.40
+# Pyramid 2: build
+100,0.40
+100,0.55
+100,0.70
+100,0.85
+# peak
+100,1.00
+# Pyramid 2: release
+100,0.85
+100,0.70
+100,0.55
+100,0.40

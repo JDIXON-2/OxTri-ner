@@ -35,6 +35,20 @@ export interface WorkoutPanel {
   update(elapsedS: number, live?: LiveReading): { position: WorkoutPosition; watts: number } | null;
 }
 
+/** Workouts bundled in `public/` that can be added with one tap. */
+const EXAMPLES = [
+  {
+    file: 'example-workout.csv',
+    label: 'Add example: short intervals',
+    title: 'An 8 minute interval workout to try things out',
+  },
+  {
+    file: 'pyramids-30min.csv',
+    label: 'Add example: 30 min pyramids',
+    title: 'Two pyramids: build from 40 % to 100 % and release back down, 100 s per step',
+  },
+] as const;
+
 const NS = 'http://www.w3.org/2000/svg';
 const W = 600;
 const H = 70;
@@ -56,15 +70,17 @@ export function createWorkoutPanel({ db, onChange, openSettings }: WorkoutPanelD
     onclick: () => file.click(),
   });
   file.hidden = true;
-  const exampleBtn = el('button', {
-    className: 'ghost',
-    textContent: 'Add example',
-    title: 'A short example workout to try things out',
-    onclick: async () => {
-      const res = await fetch(`${import.meta.env.BASE_URL}example-workout.csv`);
-      await importText('example-workout.csv', await res.text());
-    },
-  });
+  const exampleBtns = EXAMPLES.map((ex) =>
+    el('button', {
+      className: 'ghost',
+      textContent: ex.label,
+      title: ex.title,
+      onclick: async () => {
+        const res = await fetch(`${import.meta.env.BASE_URL}${ex.file}`);
+        await importText(ex.file, await res.text());
+      },
+    }),
+  );
   const deleteBtn = confirmButton(
     'Delete',
     async () => {
@@ -146,7 +162,7 @@ export function createWorkoutPanel({ db, onChange, openSettings }: WorkoutPanelD
   const root = el(
     'div',
     { className: 'card workout-card', hidden: true },
-    el('div', { className: 'row' }, select, uploadBtn, exampleBtn, deleteBtn, file),
+    el('div', { className: 'row' }, select, uploadBtn, ...exampleBtns, deleteBtn, file),
     err,
     calWarn,
     empty,
