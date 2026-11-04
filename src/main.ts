@@ -4,6 +4,8 @@ import { RideEngine } from './sim/rideEngine';
 import { Recorder } from './ride/recorder';
 import { DEFAULT_SETTINGS, getSetting, OxDb, setSetting } from './storage/db';
 import { readDevPrefs, safeLocalStorage } from './devMode';
+import { RemoteController } from './remote/controller';
+import { getRemoteSettings } from './storage/remote';
 import { checkSupport } from './support';
 import { SimulatedTrainer } from './trainer/SimulatedTrainer';
 import type { Trainer } from './trainer/Trainer';
@@ -119,7 +121,14 @@ async function start() {
   });
   mountRoutes(views.Routes, db);
   const history = mountHistory(views.History, db);
-  await mountSettings(views.Settings, db, trainer, dev, {
+  // A Bluetooth game controller (e.g. a PS4 pad) can step the grade / ERG power from the saddle.
+  const remote = new RemoteController({
+    nudge: (direction) => dashboard.nudge(direction),
+    canNudge: () => !views.Ride.hidden,
+  });
+  remote.settings = await getRemoteSettings(db);
+  remote.start();
+  await mountSettings(views.Settings, db, trainer, dev, remote, {
     isRideActive: () => recorder.state !== 'idle',
     onTrainerTouched: () => dashboard.resetCommands(),
   });

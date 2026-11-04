@@ -39,6 +39,8 @@ export interface DashboardApi {
   onShow(): void;
   /** Forget what the trainer was last told, so grade / target power are sent again. */
   resetCommands(): void;
+  /** Step the free-ride grade or ERG target up (+1) or down (-1). False if this mode has no manual control. */
+  nudge(direction: 1 | -1): boolean;
 }
 
 const CHART_WINDOW_S = 600;
@@ -198,6 +200,24 @@ export function mountDashboard(
     el('button', { className: 'adjust', textContent: label, title, onclick: fn });
   const controls = el('div', { className: 'controls' });
 
+  function bumpGrade(delta: number) {
+    engine.freeGrade = Math.min(20, Math.max(-10, engine.freeGrade + delta));
+    renderControls();
+  }
+
+  function bumpErg(delta: number) {
+    ergWatts = Math.max(0, ergWatts + delta);
+    renderControls();
+  }
+
+  /** One step up (+1) or down (-1) from a remote: grade in free ride, target power in ERG. */
+  function nudge(direction: 1 | -1): boolean {
+    if (mode === 'free') bumpGrade(direction * GRADE_STEP);
+    else if (mode === 'erg') bumpErg(direction * ERG_STEP);
+    else return false; // route and workout modes set their own grade / power
+    return true;
+  }
+
   function renderControls() {
     for (const k of ['route', 'free', 'erg', 'workout'] as const) {
       modeBtns[k].classList.toggle('active', mode === k);
@@ -211,16 +231,12 @@ export function mountDashboard(
       if (mode === 'workout') set('grade', 'ERG');
     } else if (mode === 'free') {
       controls.hidden = false;
-      const bump = (d: number) => {
-        engine.freeGrade = Math.min(20, Math.max(-10, engine.freeGrade + d));
-        renderControls();
-      };
       targetLabel.textContent = 'Grade you are riding';
       target.textContent = `${engine.freeGrade.toFixed(1)} %`;
       controls.replaceChildren(
-        adjust('−', 'Lower grade', () => bump(-GRADE_STEP)),
+        adjust('−', 'Lower grade', () => bumpGrade(-GRADE_STEP)),
         el('div', { className: 'target-box' }, targetLabel, target),
-        adjust('+', 'Raise grade', () => bump(GRADE_STEP)),
+        adjust('+', 'Raise grade', () => bumpGrade(GRADE_STEP)),
       );
       set('grade', engine.freeGrade.toFixed(1));
     } else {
@@ -228,13 +244,9 @@ export function mountDashboard(
       targetLabel.textContent = 'Target power — the trainer holds this';
       target.textContent = `${ergWatts} W`;
       controls.replaceChildren(
-        adjust(
-          '−',
-          'Lower target',
-          () => ((ergWatts = Math.max(0, ergWatts - ERG_STEP)), renderControls()),
-        ),
+        adjust('−', 'Lower target', () => bumpErg(-ERG_STEP)),
         el('div', { className: 'target-box' }, targetLabel, target),
-        adjust('+', 'Raise target', () => ((ergWatts = ergWatts + ERG_STEP), renderControls())),
+        adjust('+', 'Raise target', () => bumpErg(ERG_STEP)),
       );
       set('grade', 'ERG');
     }
@@ -567,6 +579,7 @@ export function mountDashboard(
   })();
 
   return {
+    nudge,
     onShow: () => void workoutPanel.refresh(),
     resetCommands: () => {
       engine.policy.reset();

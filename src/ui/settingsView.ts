@@ -2,7 +2,9 @@ import { createBackup, restoreBackup } from '../storage/backup';
 import { DEFAULT_SETTINGS, getSetting, setSetting, type OxDb } from '../storage/db';
 import { SETTING_FIELDS, validateSetting } from '../storage/settingsSchema';
 import type { Trainer } from '../trainer/Trainer';
+import type { RemoteController } from '../remote/controller';
 import { createCalibrationCard, type CalibrationOptions } from './calibrationView';
+import { createRemoteCard } from './remoteCard';
 import { downloadText } from './download';
 import { confirmButton, el } from './dom';
 import { safeLocalStorage, writeDevPrefs, type DevPrefs } from '../devMode';
@@ -14,6 +16,7 @@ export async function mountSettings(
   db: OxDb,
   trainer: Trainer,
   dev: DevPrefs,
+  remote: RemoteController,
   calibration: CalibrationOptions = {},
 ) {
   // --- parameters ---
@@ -214,6 +217,7 @@ export async function mountSettings(
     ),
     el('div', { className: 'savebar' }, save),
     saveStatus,
+    createRemoteCard(db, remote),
     card('Trainer info', info),
     card(
       'Storage',

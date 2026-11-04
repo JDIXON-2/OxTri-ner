@@ -956,3 +956,35 @@ button.active {
 label.check input[type='checkbox'] {
   flex: none;
 }
+
+/* ---------- controller ---------- */
+.remote-status {
+  margin: 0.6rem 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+}
+.remote-status.ok {
+  color: #3ddc97;
+  background: rgba(63, 143, 107, 0.2);
+}
+.remote-row {
+  grid-template-columns: 7.5rem 1fr auto;
+}
+.remote-row .row {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+@media (max-width: 480px) {
+  .remote-row {
+    grid-template-columns: 1fr auto;
+  }
+  .remote-row .cal-watts {
+    grid-column: 1;
+  }
+  .remote-row .row {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
