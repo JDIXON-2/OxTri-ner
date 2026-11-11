@@ -20,6 +20,7 @@ import {
   speedUnit,
   speedValue,
 } from './units';
+import type { HeartRateMonitor } from '../hr/HeartRateMonitor';
 import { WakeLockManager } from '../ride/wakeLock';
 import { createWorkoutPanel } from './workoutPanel';
 
@@ -28,6 +29,8 @@ export interface DashboardDeps {
   recorder: Recorder;
   engine: RideEngine;
   db: OxDb;
+  /** Optional Bluetooth heart-rate source (strap, or a watch in broadcast mode). */
+  hr?: HeartRateMonitor;
   /** Called on every sample, e.g. to move the rider on the map. */
   onRideState?: (st: RideState, routeId: number | null) => void;
   /** Switch to the Settings tab (used to reach effort calibration). */
@@ -51,7 +54,7 @@ const ERG_STEP = 5;
 /** Ride view: connect card, mode + controls, tiles, power chart and a sticky start/pause/finish bar. */
 export function mountDashboard(
   root: HTMLElement,
-  { trainer, recorder, engine, db, onRideState, openSettings }: DashboardDeps,
+  { trainer, recorder, engine, db, hr, onRideState, openSettings }: DashboardDeps,
 ): DashboardApi {
   let mode: RideMode = engine.mode;
   let routeId: number | null = null;
@@ -75,6 +78,44 @@ export function mountDashboard(
     el('div', { className: 'conn-main' }, el('div', {}, connTitle, connSub), connectBtn),
     connHint,
   );
+
+  // --- heart rate card ---
+  const hrSub = el('div', { className: 'hint' });
+  const hrBtn = el('button', { textContent: 'Connect HR' });
+  const hrErr = el('div', { className: 'hint', hidden: true });
+  const hrCard = el(
+    'div',
+    { className: 'card conn compact', hidden: !hr || !('bluetooth' in navigator) },
+    el(
+      'div',
+      { className: 'conn-main' },
+      el('div', {}, el('div', { className: 'conn-title' }, 'Heart rate'), hrSub),
+      hrBtn,
+    ),
+    hrErr,
+  );
+  function syncHr() {
+    if (!hr) return;
+    const off = hr.status === 'disconnected';
+    hrSub.textContent = off
+      ? 'Optional: chest strap, or a watch in heart-rate broadcast mode'
+      : `${hr.deviceName ?? 'Sensor'} · ${hr.status === 'connected' ? 'connected' : hr.status}`;
+    hrBtn.textContent = off ? 'Connect HR' : 'Disconnect';
+    hrBtn.className = off ? '' : 'ghost';
+    if (off) set('hr', '--');
+  }
+  hrBtn.onclick = () => {
+    if (!hr) return;
+    hrErr.hidden = true;
+    if (hr.status === 'disconnected') {
+      hr.connect().catch((e: Error) => {
+        // Closing the device picker is not an error worth showing.
+        if (e.name === 'NotFoundError') return;
+        hrErr.textContent = e.message;
+        hrErr.hidden = false;
+      });
+    } else hr.disconnect();
+  };
 
   const banner = el('div', {
     className: 'banner warn',
@@ -126,6 +167,7 @@ export function mountDashboard(
     { className: 'tiles' },
     tile('power', 'Power', 'W · 3 s avg', 'hero'),
     tile('cadence', 'Cadence', 'rpm'),
+    tile('hr', 'Heart rate', 'bpm'),
     tile('speed', 'Speed', speedUnit()),
     tile('grade', 'Grade', '%'),
     tile('distance', 'Distance', distanceUnit()),
@@ -394,6 +436,7 @@ export function mountDashboard(
 
   root.append(
     connCard,
+    hrCard,
     banner,
     errLine,
     resumePrompt,
@@ -419,6 +462,8 @@ export function mountDashboard(
     actionBar,
   );
   makeChart();
+  hr?.onStatus(syncHr);
+  syncHr();
   renderControls();
   syncConnection(trainer.status);
   syncButtons();
@@ -451,7 +496,9 @@ export function mountDashboard(
     const st = engine.update(s.t, power, recorder.state === 'recording');
     syncMode(st);
     onRideState?.(st, routeId);
-    const m = recorder.addSample(s, {
+    // The trainer's own heart rate (if it sends one) wins; otherwise use the Bluetooth sensor.
+    const bpm = s.hr_bpm || hr?.current();
+    const m = recorder.addSample(bpm ? { ...s, hr_bpm: bpm } : s, {
       grade: st.grade,
       ele: st.ele,
       lat: st.lat,
@@ -478,6 +525,7 @@ export function mountDashboard(
 
     set('power', String(Math.round(m ? m.avg3 : power)));
     set('cadence', String(Math.round(s.cadence_rpm ?? 0)));
+    set('hr', bpm ? String(Math.round(bpm)) : '--');
     set('speed', speedValue(st.speed * 3.6));
     set('grade', mode === 'erg' ? 'ERG' : st.grade.toFixed(1));
     set('distance', distanceValue(st.distance));

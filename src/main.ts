@@ -4,6 +4,7 @@ import { RideEngine } from './sim/rideEngine';
 import { Recorder } from './ride/recorder';
 import { DEFAULT_SETTINGS, getSetting, OxDb, setSetting } from './storage/db';
 import { readDevPrefs, safeLocalStorage } from './devMode';
+import { HeartRateMonitor } from './hr/HeartRateMonitor';
 import { RemoteController } from './remote/controller';
 import { getRemoteSettings } from './storage/remote';
 import { checkSupport } from './support';
@@ -116,6 +117,7 @@ async function start() {
     recorder,
     engine,
     db,
+    hr: new HeartRateMonitor(),
     onRideState: mapView.update,
     openSettings: () => showTab('Settings'),
   });
