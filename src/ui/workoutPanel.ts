@@ -31,7 +31,7 @@ export interface WorkoutPanel {
   readonly workout: WorkoutRow | null;
   /** Why the workout can't be started yet, or null if it can. */
   notReadyReason(): string | null;
-  /** Update the display for `elapsedS` of ride time; returns what to hold now, or null if not ready. */
+  /** Update the display for `elapsedS` of ride time; returns the step and the watts to aim for, or null if not ready. */
   update(elapsedS: number, live?: LiveReading): { position: WorkoutPosition; watts: number } | null;
 }
 

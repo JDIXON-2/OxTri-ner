@@ -81,17 +81,16 @@ test('workout: needs calibration, then target watts follow the calibrated curve 
   await page.getByRole('button', { name: 'Start ride' }).click();
   await page.clock.runFor(5_000);
   await expect(page.locator('.workout-target')).toHaveText('30 % · 125 W');
-  // The meter shows your power against the target; the simulated trainer holds the target.
+  // The meter shows the target; the rider hits it with cadence and resistance.
   await expect(page.locator('.pmeter-readouts')).toContainText('125 W');
-  await expect(page.locator('.pmeter-status')).toHaveText('✓ On target');
 
-  // After 2 minutes the second step (50 % → 175 W) takes over, and the trainer is told.
+  // After 2 minutes the second step (50 % → 175 W) takes over.
   await page.clock.runFor(120_000);
   await expect(page.locator('.workout-target')).toHaveText('50 % · 175 W');
+  // The trainer is never told to hold the watts: resistance stays with the rider.
   await tab(page, 'Debug').click();
   const log = (await page.locator('pre.log').textContent()) ?? '';
-  expect(log).toContain('"type":"power","watts":125');
-  expect(log).toContain('"type":"power","watts":175');
+  expect(log).not.toContain('"type":"power"');
   await tab(page, 'Ride').click();
 
   // Run out the rest of the 8-minute workout: it hands over to a free ride at 0 %.

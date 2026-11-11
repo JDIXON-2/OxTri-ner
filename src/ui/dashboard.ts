@@ -44,7 +44,7 @@ export interface DashboardApi {
 }
 
 const CHART_WINDOW_S = 600;
-const CHART_HEIGHT = 220;
+const CHART_HEIGHT = 170;
 const GRADE_STEP = 0.5;
 const ERG_STEP = 5;
 
@@ -212,9 +212,9 @@ export function mountDashboard(
 
   /** One step up (+1) or down (-1) from a remote: grade in free ride, target power in ERG. */
   function nudge(direction: 1 | -1): boolean {
-    if (mode === 'free') bumpGrade(direction * GRADE_STEP);
+    if (mode === 'free' || mode === 'workout') bumpGrade(direction * GRADE_STEP);
     else if (mode === 'erg') bumpErg(direction * ERG_STEP);
-    else return false; // route and workout modes set their own grade / power
+    else return false; // route mode sets its own grade
     return true;
   }
 
@@ -226,12 +226,12 @@ export function mountDashboard(
     routePanel.hidden = mode !== 'route';
     workoutPanel.root.hidden = mode !== 'workout';
     remainingTile.hidden = mode !== 'route';
-    if (mode === 'route' || mode === 'workout') {
+    if (mode === 'route') {
       controls.hidden = true;
-      if (mode === 'workout') set('grade', 'ERG');
-    } else if (mode === 'free') {
+    } else if (mode === 'free' || mode === 'workout') {
       controls.hidden = false;
-      targetLabel.textContent = 'Grade you are riding';
+      targetLabel.textContent =
+        mode === 'workout' ? 'Resistance (grade) — hit the target watts' : 'Grade you are riding';
       target.textContent = `${engine.freeGrade.toFixed(1)} %`;
       controls.replaceChildren(
         adjust('−', 'Lower grade', () => bumpGrade(-GRADE_STEP)),
@@ -411,11 +411,11 @@ export function mountDashboard(
       ),
       controls,
     ),
+    workoutPanel.root,
+    chartBox,
     primary,
     secondary,
     routePanel,
-    workoutPanel.root,
-    chartBox,
     actionBar,
   );
   makeChart();
@@ -460,31 +460,26 @@ export function mountDashboard(
       distance: st.distance,
     });
     // Workout: the step comes from ride time (which stops while paused), the watts from calibration.
-    let workoutWatts: number | null = null;
     if (mode === 'workout') {
       const w = workoutPanel.update(recorder.snapshot().elapsedS, {
         currentW: m ? m.avg3 : power,
         active: recorder.state === 'recording',
       });
       if (w) {
-        workoutWatts = w.watts;
         if (w.position.done && recorder.state === 'recording') {
           engine.setMode('free');
-          engine.freeGrade = 0;
           mode = 'free';
-          workoutWatts = null;
-          lastErg = null;
-          showMessage('Workout complete — carrying on as a free ride at 0 %.');
+          showMessage('Workout complete — carrying on as a free ride.');
           renderControls();
         }
       }
     }
-    drive(st, workoutWatts);
+    drive(st);
 
     set('power', String(Math.round(m ? m.avg3 : power)));
     set('cadence', String(Math.round(s.cadence_rpm ?? 0)));
     set('speed', speedValue(st.speed * 3.6));
-    set('grade', mode === 'erg' || mode === 'workout' ? 'ERG' : st.grade.toFixed(1));
+    set('grade', mode === 'erg' ? 'ERG' : st.grade.toFixed(1));
     set('distance', distanceValue(st.distance));
     set('remaining', mode === 'route' ? distanceValue(st.remainingDistance) : '--');
     if (m) {
@@ -512,11 +507,11 @@ export function mountDashboard(
   });
 
   /** Send grade / ERG commands, driven by the sample cadence rather than a timer. */
-  function drive(st: RideState, workoutWatts: number | null) {
+  function drive(st: RideState) {
     if (trainer.status !== 'controlling') return;
     if (st.sendGrade !== null) trainer.setGrade(st.sendGrade, engine.simParams()).catch(showError);
-    const wanted = mode === 'erg' ? ergWatts : mode === 'workout' ? workoutWatts : null;
-    if (wanted !== null) {
+    if (mode === 'erg') {
+      const wanted = ergWatts;
       // Some trainers refuse targets below their minimum, so never ask for less.
       const watts = Math.max(trainer.info.powerRange?.min ?? 0, wanted);
       if (watts !== lastErg) {

@@ -107,14 +107,15 @@ describe('RideEngine', () => {
     expect(s.grade).toBe(0);
   });
 
-  it('workout mode lets the trainer hold power: no grade sent, 0 % physics', () => {
+  it('workout mode leaves resistance to the rider: grade is sent like a free ride', () => {
     const e = mk();
     e.setMode('workout');
+    e.freeGrade = 3;
     const s = e.update(0, 200, true);
     expect(s.mode).toBe('workout');
-    expect(s.sendGrade).toBeNull();
-    expect(s.grade).toBe(0);
-    expect(ride(e, 30, 200).distance).toBeGreaterThan(100);
+    expect(s.sendGrade).toBe(3);
+    expect(s.grade).toBe(3);
+    expect(ride(e, 30, 200).distance).toBeGreaterThan(50);
   });
 
   it('exposes Crr and Cw for the trainer', () => {

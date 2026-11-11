@@ -2,7 +2,10 @@ import { ROUTE_SPACING_M, eleAt, gradeAt, type RouteData } from '../route/gpx';
 import type { GradePolicy } from '../ride/gradePolicy';
 import { cw, stepPhysics, type PhysicsParams } from './physics';
 
-/** `erg` and `workout` both let the trainer hold a target power, so neither sends a grade. */
+/**
+ * `erg` lets the trainer hold a target power, so it sends no grade. `workout` shows target watts
+ * to hit by any means; the rider sets resistance (grade, cadence), exactly as in a free ride.
+ */
 export type RideMode = 'route' | 'free' | 'erg' | 'workout';
 
 export interface RideState {
@@ -103,7 +106,7 @@ export class RideEngine {
     const activeRoute = this.mode === 'route' ? this.route : null;
     const grade = activeRoute
       ? gradeAt(activeRoute, this.distance)
-      : this.mode === 'free'
+      : this.mode === 'free' || this.mode === 'workout'
         ? this.freeGrade
         : 0;
     if (dt > 0) {
@@ -114,8 +117,7 @@ export class RideEngine {
       this.speed = 0;
     }
 
-    const targetPower = this.mode === 'erg' || this.mode === 'workout';
-    const sendGrade = targetPower ? null : this.policy.update(grade, t);
+    const sendGrade = this.mode === 'erg' ? null : this.policy.update(grade, t);
     return this.state(sendGrade);
   }
 
@@ -126,7 +128,7 @@ export class RideEngine {
       mode: this.mode,
       speed: this.speed,
       distance: this.distance,
-      grade: onRoute ? gradeAt(route, this.distance) : this.mode === 'free' ? this.freeGrade : 0,
+      grade: onRoute ? gradeAt(route, this.distance) : this.mode === 'free' || this.mode === 'workout' ? this.freeGrade : 0,
       remainingDistance: 0,
       remainingAscent: 0,
       ascentGained: 0,

@@ -86,12 +86,12 @@ export function createRemoteCard(db: OxDb, remote: RemoteController): HTMLElemen
     el(
       'p',
       {},
-      'Use a Bluetooth game controller, such as a PS4 pad, to change the grade (free ride) or target power (ERG) without touching the screen.',
+      'Use a Bluetooth game controller, such as a PS4 pad, to change the grade (free ride and workouts) or target power (ERG) without touching the screen.',
     ),
     el(
       'p',
       { className: 'hint' },
-      'Pair it in your device’s Bluetooth settings first (on a PS4 pad, hold PS and Share together until the light bar flashes). The browser can’t pair it for you. Works in Chrome and Edge on desktop and Android, with this page open in front. Each press changes the grade by 0.5 % or the target by 5 W; holding the button repeats. Route and workout rides are not affected.',
+      'Pair it in your device’s Bluetooth settings first (on a PS4 pad, hold PS and Share together until the light bar flashes). The browser can’t pair it for you. Works in Chrome and Edge on desktop and Android, with this page open in front. Each press changes the grade by 0.5 % or the target by 5 W; holding the button repeats. Route rides are not affected.',
     ),
     status,
     el('label', { className: 'check' }, enabled, el('span', {}, 'Use the controller')),
