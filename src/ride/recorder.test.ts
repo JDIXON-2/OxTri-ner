@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { OxDb } from '../storage/db';
