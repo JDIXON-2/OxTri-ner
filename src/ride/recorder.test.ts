@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { OxDb } from '../storage/db';
 import type { TrainerSample } from '../trainer/Trainer';
+import { rideToTcx } from '../storage/export';
 import { Recorder } from './recorder';
 
 let n = 0;
@@ -89,5 +90,22 @@ describe('Recorder', () => {
     const ride = await r.start();
     await r.finish();
     await expect(r.resume(ride.id!)).rejects.toThrow(/not active/);
+  });
+
+  it('keeps heart rate through to the TCX trackpoints and lap averages', async () => {
+    const r = new Recorder(db, 250, now);
+    await r.start();
+    r.addSample({ ...sample(0), hr_bpm: 120 });
+    r.addSample({ ...sample(1000), hr_bpm: 140 });
+    r.addSample(sample(2000)); // sensor dropped out: no HR for this point
+    const ride = await r.finish();
+    const samples = await db.samples.toArray();
+    expect(samples.map((x) => x.hr)).toEqual([120, 140, undefined]);
+
+    const doc = new DOMParser().parseFromString(rideToTcx(ride, samples), 'application/xml');
+    const values = [...doc.getElementsByTagName('HeartRateBpm')].map((e) => e.textContent);
+    expect(values).toEqual(['120', '140']);
+    expect(doc.getElementsByTagName('AverageHeartRateBpm')[0].textContent).toBe('130');
+    expect(doc.getElementsByTagName('MaximumHeartRateBpm')[0].textContent).toBe('140');
   });
 });
